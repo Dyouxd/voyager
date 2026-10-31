@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Voyager — Sua Lista de Viagem Inteligente</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0A0A0F" id="themeColorMeta" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Supabase JS Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('voyager_theme');
+        var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css?v=3" />
+</head>
+<body>
+
+  <div class="bg-particles" id="bgParticles"></div>
+
+  <!-- ===== TELA DE AUTENTICAÇÃO ===== -->
+  <div id="authScreen" class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo"><span class="logo-mark">◆</span><span class="logo-text">VOYAGER</span></div>
+      
+      <div id="loginView">
+        <h2>Bem-vindo de volta</h2>
+        <p class="auth-sub">Entre para acessar suas viagens.</p>
+        <form id="loginForm">
+          <div class="form-group"><label>E-mail</label><input type="email" id="loginEmail" required /></div>
+          <div class="form-group"><label>Senha</label><input type="password" id="loginPassword" required /></div>
+          <button type="submit" class="btn-gold" style="width:100%; margin-top:10px;">Entrar</button>
+        </form>
+        <div class="auth-links">
+          <a href="#" id="linkForgotPassword">Esqueci minha senha</a>
+          <a href="#" id="linkToRegister">Criar nova conta</a>
+        </div>
+      </div>
+
+      <div id="registerView" class="hidden">
+        <h2>Crie sua conta</h2>
+        <p class="auth-sub">Comece a planejar suas viagens.</p>
+        <form id="registerForm">
+          <div class="form-group"><label>E-mail</label><input type="email" id="registerEmail" required /></div>
+          <div class="form-group"><label>Senha</label><input type="password" id="registerPassword" required minlength="6" /></div>
+          <button type="submit" class="btn-gold" style="width:100%; margin-top:10px;">Cadastrar</button>
+        </form>
+        <div class="auth-links">
+          <a href="#" id="linkToLogin">Já tenho conta. Fazer login</a>
+        </div>
+      </div>
+
+      <div id="recoverView" class="hidden">
+        <h2>Recuperar senha</h2>
+        <p class="auth-sub">Enviaremos um link para o seu e-mail.</p>
+        <form id="recoverForm">
+          <div class="form-group"><label>E-mail cadastrado</label><input type="email" id="recoverEmail" required /></div>
+          <button type="submit" class="btn-gold" style="width:100%; margin-top:10px;">Enviar link</button>
+        </form>
+        <div class="auth-links"><a href="#" id="linkBackToLogin">Voltar para o login</a></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== APLICAÇÃO PRINCIPAL ===== -->
+  <div id="appScreen" class="hidden">
+    <header class="header">
+      <div class="logo"><span class="logo-mark">◆</span><span class="logo-text">VOYAGER</span></div>
+      <div class="header-right">
+        <nav class="nav">
+          <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+          <button class="nav-btn" data-view="newtrip">Nova Viagem</button>
+          <button class="nav-btn" data-view="stats">Estatísticas</button>
+        </nav>
+        <div class="user-menu">
+          <span id="userEmailDisplay" class="user-email"></span>
+          <button id="btnAccount" class="btn-icon" title="Minha Conta">⚙️</button>
+          <button id="btnLogout" class="btn-icon" title="Sair">🚪</button>
+        </div>
+        <button class="theme-toggle" id="themeToggle" title="Alternar tema"><span class="theme-icon">🌙</span></button>
+      </div>
+    </header>
+
+    <!-- VIEW: Dashboard -->
+    <main class="main" id="view-dashboard">
+      <section class="hero">
+        <h1 class="hero-title">Sua próxima jornada começa aqui.</h1>
+        <p class="hero-sub">Listas inteligentes, salvas na nuvem.</p>
+        <button class="btn-gold" id="btnNewTripFromHero">+ Criar Nova Viagem</button>
+      </section>
+      <section class="trips-section">
+        <h2 class="section-title">Suas Viagens</h2>
+        <div class="trips-grid" id="tripsGrid"></div>
+        <p class="empty-state" id="emptyTrips">Nenhuma viagem ainda. Crie a primeira ✨</p>
+      </section>
+    </main>
+
+    <!-- VIEW: Nova Viagem -->
+    <main class="main hidden" id="view-newtrip">
+      <section class="form-section">
+        <h2 class="section-title">Nova Viagem</h2>
+        <form id="tripForm" class="trip-form">
+          <div class="form-group"><label>Nome da Viagem</label><input type="text" id="tripName" placeholder="Ex: Paris 2025" required /></div>
+          <div class="form-group"><label>Destino</label><input type="text" id="tripDest" placeholder="Ex: Paris, França" required /></div>
+          <div class="form-row">
+            <div class="form-group"><label>Data de Ida</label><input type="date" id="tripStart" required /></div>
+            <div class="form-group"><label>Data de Volta</label><input type="date" id="tripEnd" required /></div>
+          </div>
+          <div class="form-group"><label>Tipo de Viagem</label>
+            <select id="tripType">
+              <option value="praia">🏖️ Praia</option><option value="negocios">💼 Negócios</option>
+              <option value="aventura">🏔️ Aventura</option><option value="cidade">🏙️ Cidade</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-gold">Criar Viagem & Gerar Lista</button>
+        </form>
+      </section>
+    </main>
+
+    <!-- VIEW: Estatísticas -->
+    <main class="main hidden" id="view-stats">
+      <section class="hero" style="margin-bottom: 40px;"><h1 class="hero-title">Sua Jornada em Números</h1><p class="hero-sub">Um resumo de todas as suas experiências.</p></section>
+      <div id="statsContainer" class="stats-container"></div>
+    </main>
+
+    <!-- VIEW: Detalhe da Viagem -->
+    <main class="main hidden" id="view-tripdetail">
+      <div class="detail-toolbar"><button class="btn-back" id="btnBack">← Voltar</button><button class="btn-share" id="btnShare">📤 Compartilhar</button></div>
+      <section class="detail-header">
+        <h1 class="hero-title" id="detailTitle">—</h1>
+        <p class="hero-sub" id="detailSub">—</p>
+        <div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div><span class="progress-text" id="progressText">0 / 0</span></div>
+        <div class="search-wrap"><input type="text" id="searchInput" class="search-input" placeholder="🔍 Buscar item..." /><button class="search-clear" id="searchClear" type="button">✕</button></div>
+      </section>
+      <section class="ai-assistant hidden" id="aiAssistant">
+        <div class="ai-header"><h3><span class="ai-sparkle">✨</span> Assistente Voyager</h3><span class="ai-badge">Análise Inteligente</span></div>
+        <p class="ai-desc">Sugestões baseadas no clima e tipo de viagem:</p>
+        <div class="ai-list" id="aiSuggestions"></div>
+      </section>
+      <section class="weather-card hidden" id="weatherCard">
+        <div class="weather-header"><h3 class="weather-title" id="weatherTitle">🌤️ Clima</h3></div>
+        <div class="weather-main"><div class="weather-icon" id="weatherIcon">⏳</div><div class="weather-info"><div class="weather-temp" id="weatherTemp">--°C</div><div class="weather-desc" id="weatherDesc">Carregando...</div></div></div>
+        <div class="weather-forecast" id="weatherForecast"></div>
+      </section>
+      <section class="categories" id="categoriesContainer"></section>
+      <div class="add-category-wrap"><button class="btn-add-category" id="btnAddCategory">+ Adicionar Categoria</button></div>
+      <p class="search-empty hidden" id="searchEmpty">Nenhum item encontrado 🔍</p>
+    </main>
+
+    <!-- ===== RODAPÉ PROFISSIONAL ===== -->
+    <footer class="footer-extended">
+      <div class="footer-content">
+        <div class="footer-brand">
+          <div class="logo"><span class="logo-mark">◆</span><span class="logo-text">VOYAGER</span></div>
+          <p>Sua próxima jornada começa aqui.</p>
+        </div>
+        <div class="footer-links">
+          <a href="#" id="linkAbout">Sobre Nós</a>
+          <a href="#" id="linkHelp">Ajuda / Como Funciona</a>
+          <a href="#" id="linkPolicies">Políticas de Privacidade</a>
+          <a href="#" id="linkContact">Contato</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2025 Voyager. Todos os direitos reservados.</span>
+        <span>Desenvolvido por <a href="https://dyonasoftwarecompani.vercel.app/" target="_blank" rel="noopener">Dyona Software Companhi</a></span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ===== MODAIS ===== -->
+  <!-- Modal de Compartilhar -->
+  <div class="modal-overlay hidden" id="shareModal"><div class="modal"><h3>Compartilhar Viagem</h3><div class="share-section"><h4>🔗 Enviar por Link</h4><div class="share-link-wrap"><input type="text" id="shareLink" readonly /><button id="copyLinkBtn">Copiar</button></div></div><div class="modal-actions"><button id="closeShareModal">Fechar</button></div></div></div>
+
+  <!-- Modal de Categoria -->
+  <div class="modal-overlay hidden" id="categoryModal"><div class="modal"><h3 id="categoryModalTitle">Nova Categoria</h3><div class="form-group" style="margin-bottom: 24px;"><input type="text" id="categoryNameInput" placeholder="Ex: 🐶 Pet, 👶 Bebê..." /></div><div class="modal-actions"><button id="cancelCategoryBtn">Cancelar</button><button id="saveCategoryBtn" class="btn-gold-small">Salvar</button></div></div></div>
+
+  <!-- Modal de Conta -->
+  <div class="modal-overlay hidden" id="accountModal">
+    <div class="modal"><h3>Minha Conta</h3><p class="auth-sub">Logado como: <strong id="modalUserEmail"></strong></p><hr style="border-color: var(--glass-border); margin: 16px 0;"><h4 style="margin-bottom: 12px;">Alterar Senha</h4><div class="form-group" style="margin-bottom: 12px;"><label>Nova Senha</label><input type="password" id="newPasswordInput" placeholder="Mínimo 6 caracteres" /></div><button id="btnChangePassword" class="btn-gold" style="width:100%;">Atualizar Senha</button><div class="modal-actions" style="margin-top: 16px;"><button id="closeAccountModal">Fechar</button></div></div>
+  </div>
+
+  <!-- Modal de Redefinição de Senha -->
+  <div class="modal-overlay hidden" id="resetPasswordModal">
+    <div class="modal"><h3>Definir Nova Senha</h3><p class="auth-sub">Você acessou através do link de recuperação. Crie uma nova senha.</p><div class="form-group" style="margin-bottom: 24px;"><label>Nova Senha</label><input type="password" id="resetPasswordInput" placeholder="Mínimo 6 caracteres" /></div><div class="modal-actions"><button id="btnSaveNewPassword" class="btn-gold-small">Salvar Nova Senha</button></div></div>
+  </div>
+
+  <!-- Modal de Ajuda (Como Funciona) -->
+  <div class="modal-overlay hidden" id="helpModal">
+    <div class="modal" style="max-width: 650px;">
+      <h3>📖 Como funciona o Voyager</h3>
+      <div class="help-content">
+        <p>O Voyager foi criado para que você nunca mais esqueça um item essencial. Veja como é fácil usar:</p>
+        <div class="help-step">
+          <strong>1. Criar uma Viagem</strong>
+          <p>Clique em "Nova Viagem", defina o destino, as datas e o tipo (Praia, Negócios, etc). O sistema vai gerar automaticamente uma lista base para você.</p>
+        </div>
+        <div class="help-step">
+          <strong>2. Clima e Assistente IA</strong>
+          <p>Ao abrir a viagem, o Voyager busca a previsão do tempo real. Se vai chover ou fazer calor, o Assistente Inteligente (✨) sugere itens extras (como guarda-chuva ou protetor solar). Clique em "+ Adicionar" para incluir.</p>
+        </div>
+        <div class="help-step">
+          <strong>3. Organizar Categorias</strong>
+          <p>Você pode criar categorias personalizadas (ex: 🐶 Pet, 🎿 Esqui) clicando no botão no final da lista. Também pode renomear ou excluir categorias passando o mouse no título delas.</p>
+        </div>
+        <div class="help-step">
+          <strong>4. Compartilhar</strong>
+          <p>Dentro da viagem, clique em "📤 Compartilhar" para gerar um link. Envie para quem for viajar com você. A pessoa poderá importar a viagem inteira para a conta dela com um clique!</p>
+        </div>
+        <div class="help-step">
+          <strong>5. Instalar no Celular</strong>
+          <p>O Voyager funciona offline no celular. Se estiver no Chrome ou Safari, vá no menu do navegador e escolha "Adicionar à tela de início".</p>
+        </div>
+      </div>
+      <div class="modal-actions" style="margin-top: 24px;"><button id="closeHelpModal">Entendi, vamos viajar!</button></div>
+    </div>
+  </div>
+
+  <!-- Modal de Sobre Nós -->
+  <div class="modal-overlay hidden" id="aboutModal">
+    <div class="modal">
+      <h3>◆ Sobre o Voyager</h3>
+      <p class="auth-sub" style="text-align: left;">O Voyager nasceu da necessidade de simplificar o planejamento de viagens. Sabemos que a ansiedade de "será que esqueci algo?" pode atrapalhar a experiência.</p>
+      <p class="auth-sub" style="text-align: left;">Nosso objetivo é unir <strong>tecnologia, clima e inteligência artificial</strong> para criar listas dinâmicas e personalizadas, para que você só se preocupe em aproveitar a jornada.</p>
+      <p class="auth-sub" style="text-align: left; margin-top: 16px;">Desenvolvido com carinho por <a href="https://dyonasoftwarecompani.vercel.app/" target="_blank" style="color: var(--gold); text-decoration: none; font-weight: bold;">Dyona Software Companhi</a>.</p>
+      <div class="modal-actions"><button id="closeAboutModal">Fechar</button></div>
+    </div>
+  </div>
+
+  <!-- Modal de Políticas -->
+  <div class="modal-overlay hidden" id="policiesModal">
+    <div class="modal" style="max-width: 650px;">
+      <h3>🔒 Política de Privacidade</h3>
+      <div class="help-content">
+        <p><strong>Seus dados são seus.</strong></p>
+        <p>1. <strong>Armazenamento:</strong> Suas listas e dados de conta são armazenados de forma segura na nuvem (via Supabase), protegidos por criptografia e regras de acesso (RLS), garantindo que apenas você veja suas viagens.</p>
+        <p>2. <strong>E-mail:</strong> Seu e-mail é usado exclusivamente para login, recuperação de senha e comunicações essenciais do sistema. Nunca vendemos ou compartilhamos seus dados com terceiros.</p>
+        <p>3. <strong>Clima:</strong> Para exibir a previsão do tempo, enviamos apenas o nome da cidade digitada para a API pública da Open-Meteo. Nenhum dado pessoal seu é enviado.</p>
+      </div>
+      <div class="modal-actions"><button id="closePoliciesModal">Fechar</button></div>
+    </div>
+  </div>
+
+  <!-- Modal de Contato -->
+  <div class="modal-overlay hidden" id="contactModal">
+    <div class="modal">
+      <h3>💬 Precisa de Ajuda?</h3>
+      <p class="auth-sub">Se você tiver algum problema, dúvida ou sugestão, entre em contato conosco:</p>
+      <div class="contact-options">
+        <!-- ALTERAÇÃO AQUI: E-mail mudado para o Gmail -->
+        <a href="mailto:dyonasoftwarecompani@gmail.com" class="contact-btn">
+          <span>📧</span> Enviar E-mail
+        </a>
+        <a href="https://dyonasoftwarecompani.vercel.app/" target="_blank" class="contact-btn">
+          <span>🌐</span> Visitar nosso site
+        </a>
+      </div>
+      <div class="modal-actions"><button id="closeContactModal">Fechar</button></div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
